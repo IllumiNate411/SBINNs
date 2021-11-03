@@ -89,8 +89,31 @@ def pinn(data_t, data_y):
     idx = np.append(
         np.random.choice(np.arange(1, n - 1), size=n // 5, replace=False), [0, n - 1]
     )
-    #ptset = dde.bc.PointSet(data_t[idx])
-    ptset = dde.PointSetBC(data_t[idx], data_y[idx, 3:4], component = 3)
+    # ptset = dde.bc.PointSet(data_t[idx])
+    class PointSet(object):
+        """A set of points.
+        """
+
+        def __init__(self, points):
+            self.points = np.array(points)
+
+        def inside(self, x):
+            return np.any(np.all(np.isclose(x, self.points), axis=1))
+
+        def values_to_func(self, values):
+            zero = np.zeros(len(values[0]))
+
+            def func(x):
+                if not self.inside(x):
+                    return zero
+                idx = np.argwhere(np.all(np.isclose(x, self.points), axis=1))[0, 0]
+                return values[idx]
+
+            return lambda X: np.array(list(map(func, X)))
+
+    ptset = PointSet(data_t[idx])
+    # ptset = dde.PointSetBC(data_t[idx],data_y[idx,3:4], component=3)
+
     inside = lambda x, _: ptset.inside(x)
     observe_y3 = dde.DirichletBC(
         geom, ptset.values_to_func(data_y[idx, 3:4]), inside, component=3
